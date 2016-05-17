@@ -1,0 +1,20 @@
+{
+  "name": "bgger",
+  "version": "0.1.0",
+  "description": "",
+  "dependencies": {
+    "jquery":"2.1.4",
+    "foundation": "",
+    "DataTables": ""
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "/cygdrive/c/Users/req86346/gitmove/bgger.git"
+  },
+  "author": "",
+  "license": "ISC"
+}

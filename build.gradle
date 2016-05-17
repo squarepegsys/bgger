@@ -1,0 +1,168 @@
+buildscript {
+    ext {
+        grailsVersion = project.grailsVersion
+    }
+    repositories {
+        mavenLocal()
+        maven { url "https://repo.grails.org/grails/core" }
+        maven { url 'http://dl.bintray.com/vermeulen-mp/gradle-plugins'}
+
+
+    }
+    dependencies {
+        classpath "org.grails:grails-gradle-plugin:$grailsVersion"
+        classpath 'com.bertramlabs.plugins:asset-pipeline-gradle:2.5.0'
+        classpath 'com.wiredforcode:gradle-heroku-plugin:1.0.0'
+    }
+
+}
+
+plugins {
+    id "io.spring.dependency-management" version "0.5.2.RELEASE"
+    id "com.moowork.node" version "0.10"
+}
+
+
+
+version "0.3"
+group "bgger"
+
+apply plugin: "spring-boot"
+apply plugin: "war"
+apply plugin: "asset-pipeline"
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: "org.grails.grails-web"
+apply plugin: "org.grails.grails-gsp"
+apply plugin: "com.moowork.node"
+apply plugin: 'heroku'
+
+node {
+    version = '0.12.2'
+    npmVersion = '2.7.5'
+    download = true
+}
+
+task npmCacheConfig(type: NpmTask) {
+    description = "Configure the NPM cache"
+    def npmCacheDir = "${gradle.getGradleUserHomeDir()}/caches/npm"
+    outputs.files file(npmCacheDir)
+    args = [ 'config', 'set', 'cache', npmCacheDir ]
+}
+
+task npmPackages(type: NpmTask, dependsOn: npmCacheConfig) {
+    description = "Install Node.js packages"
+    args = [ 'install' ]
+    inputs.files file('package.json')
+    outputs.files file('node_modules')
+}
+task bowerInstall(type: NodeTask) {
+    script = file('node_modules/bower/bin/bower')
+    args = ["--config.storage.cache=${gradle.getGradleUserHomeDir()}/caches/bower/cache",
+            "--config.storage.packages=${gradle.getGradleUserHomeDir()}/caches/bower/packages",
+            "--config.storage.registry=${gradle.getGradleUserHomeDir()}/caches/bower/registry",
+            'install']
+    inputs.files file('bower.json')
+    outputs.files file('bower_components')
+    dependsOn npmPackages
+}
+
+
+task bowerSyncJavascript(type: Sync) {
+    from 'bower_components'
+    into "grails-app/assets/javascripts/bower_components"
+    exclude '**/*.min.js'
+    exclude '**/angular*/index.js'
+    exclude '**/angular*/ng*.js'
+    include 'jquery/dist/jquery.js'
+    include '*/**/*.js'
+    include '*/**/*.png'
+    dependsOn bowerInstall
+}
+
+task bowerSyncCss(type: Sync) {
+    from 'bower_components'
+    into "grails-app/assets/stylesheets/bower_components"
+    exclude '**/*.min.css'
+    include '*/**/*.css'
+    dependsOn bowerInstall
+
+}
+
+
+
+task bowerSync(type: Sync) {
+
+
+    dependsOn bowerSyncJavascript, bowerSyncCss
+}
+
+ext {
+    grailsVersion = project.grailsVersion
+    gradleWrapperVersion = project.gradleWrapperVersion
+}
+
+assets {
+    minifyJs = true
+    minifyCss = true
+}
+
+repositories {
+    mavenLocal()
+    maven { url "https://repo.grails.org/grails/core" }
+    maven { url "http://dl.bintray.com/dmahapatro/plugins" }
+    jcenter()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.grails:grails-bom:$grailsVersion"
+    }
+    applyMavenExclusions false
+}
+
+
+
+dependencies {
+    compile "org.springframework.boot:spring-boot-starter-logging"
+    compile "org.springframework.boot:spring-boot-starter-actuator"
+    compile "org.springframework.boot:spring-boot-autoconfigure"
+    compile "org.springframework.boot:spring-boot-starter-undertow"
+    compile "org.grails:grails-dependencies"
+    compile "org.grails:grails-web-boot"
+
+    //compile "org.grails.plugins:actuator-ui:0.1"
+
+    runtime 'org.postgresql:postgresql:9.2-1003-jdbc4'
+
+    compile "org.grails.plugins:hibernate"
+    compile "org.grails.plugins:cache"
+    compile "org.hibernate:hibernate-ehcache"
+    compile "org.grails.plugins:scaffolding"
+    compile 'org.grails.plugins:quartz:2.0.0'
+
+    runtime "org.grails.plugins:asset-pipeline"
+
+    testCompile "org.grails:grails-plugin-testing"
+    testCompile "org.grails.plugins:geb"
+
+    //compile "de.codecentric:spring-boot-admin-starter-client:1.2.3"
+
+    // more plugins --
+    compile 'org.grails.plugins:spring-security-core:3.0.0.M1'
+    // Note: It is recommended to update to a more robust driver (Chrome, Firefox etc.)
+    testRuntime 'org.seleniumhq.selenium:selenium-htmlunit-driver:2.44.0'
+
+    console "org.grails:grails-console"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = gradleWrapperVersion
+}
+task stage {
+    dependsOn clean, bowerSync, build
+}
+bootRun {
+    //put this in so we can see the pretty-pretty colors in the console log
+    jvmArgs = ['-Dspring.output.ansi.enabled=' + (System.console() ? 'always' : 'detect')]
+}
